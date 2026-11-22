@@ -1,647 +1,126 @@
-
-import json
-from pathlib import Path
-
-import joblib
-import numpy as np
-import pandas as pd
-import streamlit as st
-
-# --------------------------------------------------
-# CONFIGURATION
-# --------------------------------------------------
-
-BASE_DIR = Path(__file__).parent
-
-MODEL_PATH = BASE_DIR / "best_soc_prediction_model.joblib"
-METADATA_PATH = BASE_DIR / "project_metadata.json"
-RESULTS_PATH = BASE_DIR / "model_comparison_results.csv"
-
-st.set_page_config(
-    page_title="EV Battery Intelligence",
-    page_icon="🔋",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# --------------------------------------------------
-# PREMIUM DARK UI
-# --------------------------------------------------
-
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
-}
-
-.stApp {
-    background: linear-gradient(135deg, #080D18, #101B2B);
-    color: #F1F5F9;
-}
-
-header[data-testid="stHeader"] {
-    background: transparent;
-}
-
-.block-container {
-    padding-top: 2rem;
-    padding-bottom: 3rem;
-    max-width: 1500px;
-}
-
-section[data-testid="stSidebar"] {
-    background: #0B1422;
-    border-right: 1px solid #263449;
-}
-
-.hero {
-    background: linear-gradient(110deg, #102C35, #14263D);
-    border: 1px solid #28515A;
-    padding: 30px;
-    border-radius: 18px;
-    margin-bottom: 25px;
-}
-
-.hero h1 {
-    font-size: 34px;
-    font-weight: 800;
-    color: #FFFFFF;
-    margin-bottom: 8px;
-}
-
-.hero p {
-    color: #A9C4CD;
-    font-size: 14px;
-}
-
-.section-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: #E5EDF7;
-    margin-top: 20px;
-    margin-bottom: 15px;
-}
-
-.metric-card {
-    background: linear-gradient(145deg, #17263A, #111D2E);
-    border: 1px solid #2A3B52;
-    border-radius: 15px;
-    padding: 19px;
-    min-height: 125px;
-}
-
-.metric-label {
-    color: #9AAFC5;
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.metric-value {
-    color: #5EEAD4;
-    font-size: 29px;
-    font-weight: 800;
-    margin-top: 12px;
-}
-
-.metric-note {
-    color: #8399AF;
-    font-size: 11px;
-    margin-top: 5px;
-}
-
-div.stButton > button[kind="primary"] {
-    background: linear-gradient(90deg, #0D9488, #14B8A6);
-    color: white;
-    border: none;
-    border-radius: 9px;
-    font-weight: 700;
-    height: 48px;
-}
-
-div.stButton > button[kind="primary"]:hover {
-    background: #0F766E;
-    border: none;
-}
-
-div[data-testid="stFileUploader"] {
-    background: #132137;
-    border: 1px dashed #3B6078;
-    border-radius: 12px;
-    padding: 15px;
-}
-
-div[data-testid="stDataFrame"] {
-    border: 1px solid #293D55;
-    border-radius: 10px;
-}
-
-hr {
-    border-color: #263449;
-}
-
-footer {
-    visibility: hidden;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# --------------------------------------------------
-# HEADER
-# --------------------------------------------------
-
-st.markdown("""
-<div class="hero">
-    <h1>⚡ EV BATTERY INTELLIGENCE</h1>
-    <p>Advanced Machine Learning | Battery State-of-Charge Prediction</p>
-    <p>Computational Intelligence Project · Electric Vehicle Analytics</p>
-</div>
-""", unsafe_allow_html=True)
-
-# --------------------------------------------------
-# LOAD MODEL
-# --------------------------------------------------
-
-if not MODEL_PATH.exists() or not METADATA_PATH.exists():
-    st.error(
-        "Model files missing. Please add the trained model and "
-        "project_metadata.json to the application folder."
-    )
-    st.stop()
-
-try:
-    model = joblib.load(MODEL_PATH)
-    metadata = json.loads(
-        METADATA_PATH.read_text(encoding="utf-8")
-    )
-except Exception as exc:
-    st.error(f"Model loading error: {exc}")
-    st.stop()
-
-features = metadata.get("feature_columns", [])
-
-if not features:
-    st.error("Feature columns are missing from metadata.")
-    st.stop()
-
-model_name = metadata.get(
-    "best_model_by_test_RMSE",
-    "Saved Machine Learning Model"
-)
-
-# --------------------------------------------------
-# SIDEBAR
-# --------------------------------------------------
-
-with st.sidebar:
-
-    st.markdown("## 🔋 EV INTELLIGENCE")
-
-    st.caption("BATTERY ANALYTICS PLATFORM")
-
-    st.divider()
-
-    st.markdown("### Model Information")
-
-    st.success("Model loaded successfully")
-
-    st.write(f"**Selected Model:** {model_name}")
-    st.write(f"**Input Features:** {len(features)}")
-
-    st.divider()
-
-    st.markdown("### Input Parameters")
-
-    for feature in features:
-        st.caption(f"• {feature}")
-
-    st.divider()
-
-    st.markdown("### Project Information")
-
-    st.write("**Domain:** Computational Intelligence")
-    st.write("**Application:** EV Battery SoC Prediction")
-    st.write("**Framework:** Streamlit")
-    st.write("**Language:** Python")
-
-    st.divider()
-
-    st.caption(
-        "Academic research prototype. "
-        "Predictions are not certified battery measurements."
-    )
-
-# --------------------------------------------------
-# METADATA / MODEL COMPARISON
-# --------------------------------------------------
-
-tab1, tab2, tab3 = st.tabs([
-    "📊 Battery Dashboard",
-    "🧠 Model Analytics",
-    "ℹ️ About Project"
-])
-
-# --------------------------------------------------
-# TAB 1 - BATTERY DASHBOARD
-# --------------------------------------------------
-
-with tab1:
-
-    st.markdown(
-        '<div class="section-title">Battery Monitoring Overview</div>',
-        unsafe_allow_html=True
-    )
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.markdown("""
-        <div class="metric-card">
-            <div class="metric-label">AI MODEL</div>
-            <div class="metric-value" style="font-size:20px;">
-                ACTIVE
-            </div>
-            <div class="metric-note">Prediction engine ready</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">INPUT FEATURES</div>
-            <div class="metric-value">{len(features)}</div>
-            <div class="metric-note">Required model parameters</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col3:
-        st.markdown("""
-        <div class="metric-card">
-            <div class="metric-label">PREDICTION MODE</div>
-            <div class="metric-value" style="font-size:20px;">
-                CSV BASED
-            </div>
-            <div class="metric-note">Offline dataset prediction</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    st.markdown(
-        '<div class="section-title">Upload Battery Measurements</div>',
-        unsafe_allow_html=True
-    )
-
-    st.write(
-        "Upload your battery dataset containing the required "
-        "input features to estimate battery State of Charge."
-    )
-
-    template = pd.DataFrame(columns=features)
-
-    st.download_button(
-        "⬇ Download CSV Template",
-        data=template.to_csv(index=False).encode("utf-8"),
-        file_name="EV_Battery_Input_Template.csv",
-        mime="text/csv"
-    )
-
-    uploaded = st.file_uploader(
-        "Upload Battery Dataset",
-        type=["csv"],
-        help="Upload a CSV containing all required model features."
-    )
-
-    if uploaded is not None:
-
-        try:
-            input_df = pd.read_csv(uploaded)
-
-            missing = [
-                col for col in features
-                if col not in input_df.columns
-            ]
-
-            if missing:
-                st.error(
-                    "Missing required features: "
-                    + ", ".join(missing)
-                )
-                st.stop()
-
-            if input_df.empty:
-                st.warning("Uploaded dataset is empty.")
-                st.stop()
-
-            prediction_input = input_df[features].copy()
-
-            # Validate numeric inputs
-            for col in features:
-                prediction_input[col] = pd.to_numeric(
-                    prediction_input[col],
-                    errors="coerce"
-                )
-
-            if prediction_input.isnull().any().any():
-                st.error(
-                    "Some input features contain missing or "
-                    "non-numeric values. Please correct your CSV."
-                )
-                st.stop()
-
-            if not np.isfinite(
-                prediction_input.to_numpy(dtype=float)
-            ).all():
-                st.error("Dataset contains infinite values.")
-                st.stop()
-
-            st.markdown("### Dataset Preview")
-
-            m1, m2, m3 = st.columns(3)
-
-            m1.metric("Total Records", f"{len(input_df):,}")
-            m2.metric("Input Features", len(features))
-            m3.metric("Dataset Size", f"{input_df.memory_usage(deep=True).sum()/1024:.1f} KB")
-
-            with st.expander("View uploaded measurements"):
-                st.dataframe(
-                    prediction_input.head(100),
-                    use_container_width=True,
-                    hide_index=True
-                )
-
-            st.markdown("---")
-
-            if st.button(
-                "⚡ PREDICT BATTERY SOC",
-                type="primary",
-                use_container_width=True
-            ):
-
-                with st.spinner("AI model is analyzing battery data..."):
-
-                    predictions = np.asarray(
-                        model.predict(prediction_input)
-                    ).reshape(-1)
-
-                if len(predictions) != len(input_df):
-                    st.error("Model returned an unexpected number of predictions.")
-                    st.stop()
-
-                if not np.isfinite(predictions).all():
-                    st.error("Model returned invalid prediction values.")
-                    st.stop()
-
-                output = input_df.copy()
-
-                output["Predicted_SoC"] = predictions
-
-                avg_soc = float(np.mean(predictions))
-                min_soc = float(np.min(predictions))
-                max_soc = float(np.max(predictions))
-
-                st.session_state["soc_output"] = output
-                st.session_state["soc_predictions"] = predictions
-
-                st.success("Battery SoC prediction completed!")
-
-            # Display saved prediction results
-            if "soc_output" in st.session_state:
-
-                output = st.session_state["soc_output"]
-                predictions = st.session_state["soc_predictions"]
-
-                avg_soc = float(np.mean(predictions))
-                min_soc = float(np.min(predictions))
-                max_soc = float(np.max(predictions))
-
-                st.markdown("---")
-
-                st.markdown(
-                    '<div class="section-title">Prediction Results</div>',
-                    unsafe_allow_html=True
-                )
-
-                a, b, c, d = st.columns(4)
-
-                a.metric(
-                    "Average SoC",
-                    f"{avg_soc:.2f}%"
-                )
-
-                b.metric(
-                    "Minimum SoC",
-                    f"{min_soc:.2f}%"
-                )
-
-                c.metric(
-                    "Maximum SoC",
-                    f"{max_soc:.2f}%"
-                )
-
-                d.metric(
-                    "Predicted Records",
-                    f"{len(output):,}"
-                )
-
-                if min_soc < 0 or max_soc > 100:
-                    st.warning(
-                        "Some predictions are outside the expected "
-                        "0–100% SoC range. Check model performance "
-                        "and training data."
-                    )
-
-                st.markdown("### Battery SoC Distribution")
-
-                chart_data = pd.DataFrame({
-                    "Predicted SoC (%)": predictions
-                })
-
-                st.bar_chart(
-                    chart_data,
-                    height=280
-                )
-
-                st.markdown("### SoC Prediction Trend")
-
-                trend_data = pd.DataFrame({
-                    "Predicted SoC (%)": predictions
-                })
-
-                trend_data.index.name = "Record"
-
-                st.line_chart(
-                    trend_data,
-                    height=300
-                )
-
-                st.markdown("### Complete Prediction Table")
-
-                st.dataframe(
-                    output,
-                    use_container_width=True,
-                    hide_index=True
-                )
-
-                st.download_button(
-                    "⬇ Download Prediction Results",
-                    data=output.to_csv(index=False).encode("utf-8"),
-                    file_name="EV_Battery_SoC_Predictions.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-
-        except Exception as exc:
-            st.error(f"Could not process dataset: {exc}")
-
-    else:
-        st.info(
-            "Upload your CSV dataset to begin battery SoC prediction."
+if st.session_state.prediction_output is not None:
+        out = st.session_state.prediction_output
+        pred = pd.to_numeric(out["Predicted_SoC"], errors="coerce").dropna()
+        st.markdown("---")
+        st.markdown("#### Prediction summary")
+        q1, q2, q3, q4 = st.columns(4)
+        q1.metric("Predicted records", f"{len(pred):,}")
+        q2.metric("Mean SoC", f"{pred.mean():.2f}%")
+        q3.metric("Minimum SoC", f"{pred.min():.2f}%")
+        q4.metric("Maximum SoC", f"{pred.max():.2f}%")
+        if (pred.lt(0) | pred.gt(100)).any():
+            st.warning("One or more predicted values fall outside 0–100%. Do not treat these as validated battery measurements.")
+        trend = px.line(pd.DataFrame({"Record": np.arange(1, len(pred)+1), "Predicted SoC (%)": pred.to_numpy()}),
+                        x="Record", y="Predicted SoC (%)", title="Predicted SoC across uploaded records")
+        trend = plotly_layout(trend, 330)
+        st.plotly_chart(trend, use_container_width=True)
+        actual_col = "Actual_SoC" if "Actual_SoC" in out.columns else None
+        if actual_col and out[actual_col].notna().any():
+            valid = out[[actual_col, "Predicted_SoC"]].dropna()
+            compare = pd.DataFrame({"Record": np.arange(1, len(valid)+1),
+                                    "Actual SoC": valid[actual_col].to_numpy(),
+                                    "Predicted SoC": valid["Predicted_SoC"].to_numpy()})
+            fig = px.line(compare, x="Record", y=["Actual SoC", "Predicted SoC"], title="Actual vs predicted SoC")
+            st.plotly_chart(plotly_layout(fig, 330), use_container_width=True)
+            mae = float(np.mean(np.abs(valid[actual_col] - valid["Predicted_SoC"])))
+            rmse = float(np.sqrt(np.mean((valid[actual_col] - valid["Predicted_SoC"]) ** 2)))
+            e1, e2 = st.columns(2)
+            e1.metric("MAE", f"{mae:.4f}")
+            e2.metric("RMSE", f"{rmse:.4f}")
+        st.dataframe(out, use_container_width=True, hide_index=True)
+        st.download_button(
+            "Download prediction results",
+            data=out.to_csv(index=False).encode("utf-8"),
+            file_name="ev_battery_soc_predictions.csv",
+            mime="text/csv",
+            use_container_width=True,
         )
 
-# --------------------------------------------------
-# TAB 2 - MODEL ANALYTICS
-# --------------------------------------------------
-
-with tab2:
-
-    st.markdown(
-        '<div class="section-title">Machine Learning Performance</div>',
-        unsafe_allow_html=True
-    )
-
+# --------------------------- MODEL PERFORMANCE ---------------------------
+elif page == "Model Performance":
+    st.markdown('<div class="section-head">Model performance & comparison</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Review saved evaluation results from your training workflow.</div>', unsafe_allow_html=True)
+    st.markdown(f"**Selected estimator:** {model_name}")
     if RESULTS_PATH.exists():
-
         try:
             results = pd.read_csv(RESULTS_PATH)
-
-            st.markdown("### Model Comparison")
-
-            st.dataframe(
-                results,
-                use_container_width=True,
-                hide_index=True
-            )
-
-            # Identify common numeric performance metrics
-            metric_columns = [
-                col for col in results.select_dtypes(
-                    include="number"
-                ).columns
-                if col.lower() in [
-                    "mae", "mse", "rmse", "r2",
-                    "r2_score", "accuracy"
-                ]
-            ]
-
-            if metric_columns:
-
-                st.markdown("### Performance Comparison Charts")
-
-                selected_metric = st.selectbox(
-                    "Select evaluation metric",
-                    metric_columns
-                )
-
-                model_columns = [
-                    col for col in results.columns
-                    if col not in metric_columns
-                    and not pd.api.types.is_numeric_dtype(
-                        results[col]
-                    )
-                ]
-
-                if model_columns:
-
-                    chart_df = results[
-                        [model_columns[0], selected_metric]
-                    ].copy()
-
-                    chart_df[selected_metric] = pd.to_numeric(
-                        chart_df[selected_metric],
-                        errors="coerce"
-                    )
-
-                    chart_df = chart_df.dropna().set_index(
-                        model_columns[0]
-                    )
-
-                    st.bar_chart(
-                        chart_df,
-                        height=350
-                    )
-
+            st.dataframe(results, use_container_width=True, hide_index=True)
+            numeric_cols = results.select_dtypes(include="number").columns.tolist()
+            if numeric_cols:
+                metric = st.selectbox("Choose metric to visualize", numeric_cols)
+                non_numeric = [c for c in results.columns if c not in numeric_cols]
+                if non_numeric:
+                    model_col = non_numeric[0]
+                    plot_df = results[[model_col, metric]].copy()
+                    plot_df[metric] = pd.to_numeric(plot_df[metric], errors="coerce")
+                    plot_df = plot_df.dropna()
+                    fig = px.bar(plot_df, x=model_col, y=metric, text_auto=".4g",
+                                 title=f"Model comparison · {metric}")
+                    st.plotly_chart(plotly_layout(fig, 380), use_container_width=True)
+                else:
+                    st.info("No text model-name column was found, so the metric table is shown without a model comparison chart.")
         except Exception as exc:
-            st.error(f"Could not load model results: {exc}")
-
+            st.error(f"Could not read model comparison results: {exc}")
     else:
-        st.warning(
-            "Model comparison CSV not found. "
-            "Add model_comparison_results.csv to view analytics."
-        )
+        st.info("model_comparison_results.csv was not found. Add it beside app.py to enable model comparison analytics.")
+    st.caption("Only metrics present in your saved comparison CSV are displayed. The app does not invent evaluation scores.")
 
-# --------------------------------------------------
-# TAB 3 - PROJECT INFORMATION
-# --------------------------------------------------
+# --------------------------- DATASET EXPLORER ---------------------------
+elif page == "Dataset Explorer":
+    st.markdown('<div class="section-head">Dataset explorer</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Inspect a source CSV, understand its columns and review descriptive statistics.</div>', unsafe_allow_html=True)
+    data_file = st.file_uploader("Upload a dataset to explore", type=["csv"], key="explorer_csv")
+    if data_file is not None:
+        try:
+            df = pd.read_csv(data_file)
+            a, b, c = st.columns(3)
+            a.metric("Rows", f"{len(df):,}")
+            b.metric("Columns", f"{len(df.columns):,}")
+            c.metric("Memory", f"{df.memory_usage(deep=True).sum()/1024:.1f} KB")
+            st.markdown("#### Data preview")
+            st.dataframe(df.head(100), use_container_width=True, hide_index=True)
+            st.markdown("#### Column profile")
+            profile = pd.DataFrame({
+                "Column": df.columns.astype(str),
+                "Data type": df.dtypes.astype(str).values,
+                "Missing values": df.isna().sum().values,
+                "Unique values": df.nunique(dropna=True).values,
+            })
+            st.dataframe(profile, use_container_width=True, hide_index=True)
+            numeric = df.select_dtypes(include="number")
+            if not numeric.empty:
+                st.markdown("#### Descriptive statistics")
+                st.dataframe(numeric.describe().T, use_container_width=True)
+                chosen = st.selectbox("Select numeric column", numeric.columns.tolist())
+                hist = px.histogram(df, x=chosen, nbins=35, title=f"Distribution · {chosen}")
+                st.plotly_chart(plotly_layout(hist, 330), use_container_width=True)
+        except Exception as exc:
+            st.error(f"Could not inspect dataset: {exc}")
+    else:
+        st.info("Upload a CSV to inspect its structure. This explorer does not modify your training dataset.")
 
-with tab3:
+# --------------------------- PROJECT DETAILS ---------------------------
+elif page == "Project Details":
+    st.markdown('<div class="section-head">Project documentation</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">EV Battery State-of-Charge Prediction using Computational Intelligence.</div>', unsafe_allow_html=True)
+    p1, p2 = st.columns(2, gap="large")
+    with p1:
+        st.markdown('<div class="panel"><div class="panel-title">Project objective</div><p style="color:#718096;font-size:13px">Estimate the State of Charge (SoC) of an electric-vehicle battery from operating measurements using a trained machine-learning model.</p><div class="panel-title">Current model configuration</div></div>', unsafe_allow_html=True)
+        st.write("**Model:**", model_name)
+        st.write("**Target:**", metadata.get("target_column", "Not specified"))
+        st.write("**Input features:**", len(features))
+    with p2:
+        st.markdown('<div class="panel"><div class="panel-title">Technology stack</div><p style="color:#718096;font-size:13px">Python · Pandas · NumPy · Scikit-learn · Joblib · Streamlit · Plotly</p><div class="panel-title">Input schema</div></div>', unsafe_allow_html=True)
+        st.dataframe(pd.DataFrame({"Required feature": features}), use_container_width=True, hide_index=True)
+    st.warning("Research and educational demonstration only. This application is not a certified battery-management system or medical/safety device. Do not use predictions to control real battery charging, discharging or protection systems.")
 
-    st.markdown("## About This Project")
-
-    st.write(
-        "This project uses Computational Intelligence and "
-        "Machine Learning techniques to estimate the State of "
-        "Charge of Electric Vehicle batteries."
-    )
-
-    st.markdown("### Project Objectives")
-
-    st.markdown("""
-    - Predict battery State of Charge using machine learning.
-    - Analyze battery operating parameters.
-    - Compare machine learning model performance.
-    - Visualize battery SoC predictions.
-    - Provide an interactive prediction interface.
-    """)
-
-    st.markdown("### Input Features")
-
-    st.dataframe(
-        pd.DataFrame({
-            "Feature Name": features
-        }),
-        use_container_width=True,
-        hide_index=True
-    )
-
-    st.markdown("### Technology Stack")
-
-    st.markdown("""
-    | Technology | Purpose |
-    |---|---|
-    | Python | Programming |
-    | Pandas | Data processing |
-    | NumPy | Numerical computation |
-    | Scikit-learn | Machine Learning |
-    | Joblib | Model loading |
-    | Streamlit | Dashboard |
-    """)
-
-# --------------------------------------------------
-# FOOTER
-# --------------------------------------------------
-
-st.markdown("---")
-
+# --------------------------- FOOTER ---------------------------
 st.markdown(
     """
-    <div style="text-align:center; color:#8094AA; padding:15px;">
-        <b>EV BATTERY INTELLIGENCE SYSTEM</b><br>
-        Computational Intelligence Academic Project<br>
-        Research and Educational Demonstration Only
+    <div style="border-top:1px solid #E3E9F0;margin-top:35px;padding-top:16px;text-align:center;color:#91A0B2;font-size:10px;letter-spacing:.05em">
+      VOLTEX · EV BATTERY INTELLIGENCE &nbsp; | &nbsp; COMPUTATIONAL INTELLIGENCE ACADEMIC PROJECT<br>
+      Research prototype · Predictions depend on the uploaded data and the saved trained model
     </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
